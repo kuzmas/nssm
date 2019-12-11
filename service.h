@@ -88,6 +88,7 @@ typedef struct {
   SERVICE_STATUS status;
   SERVICE_STATUS_HANDLE status_handle;
   HANDLE process_handle;
+  HANDLE process_thread;
   unsigned long pid;
   HANDLE wait_handle;
   bool stopping;

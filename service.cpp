@@ -711,6 +711,7 @@ void cleanup_nssm_service(nssm_service_t *service) {
   if (service->env_extra) HeapFree(GetProcessHeap(), 0, service->env_extra);
   if (service->handle) CloseServiceHandle(service->handle);
   if (service->process_handle) CloseHandle(service->process_handle);
+  if (service->process_thread) CloseHandle(service->process_thread);
   if (service->wait_handle) UnregisterWait(service->wait_handle);
   if (service->throttle_section_initialised) DeleteCriticalSection(&service->throttle_section);
   if (service->throttle_timer) CloseHandle(service->throttle_timer);
@@ -1370,6 +1371,7 @@ void WINAPI service_main(unsigned long argc, TCHAR **argv) {
 
   /* Signal we AREN'T running the server */
   service->process_handle = 0;
+  service->process_thread = 0;
   service->pid = 0;
 
   /* Register control handler */
@@ -1631,6 +1633,7 @@ int start_service(nssm_service_t *service) {
     return stop_service(service, exitcode, true, true);
   }
   service->process_handle = pi.hProcess;
+  service->process_thread = pi.hThread;
   service->pid = pi.dwProcessId;
 
   if (get_process_creation_time(service->process_handle, &service->creation_time)) ZeroMemory(&service->creation_time, sizeof(service->creation_time));
@@ -1761,6 +1764,11 @@ void CALLBACK end_service(void *arg, unsigned char why) {
   if (service->stopping) return;
 
   service->stopping = true;
+  
+  if (service->wait_handle) {
+    UnregisterWait(service->wait_handle);
+    service->wait_handle = 0;
+  }
 
   service->rotate_stdout_online = service->rotate_stderr_online = NSSM_ROTATE_OFFLINE;
 
@@ -1775,6 +1783,10 @@ void CALLBACK end_service(void *arg, unsigned char why) {
     /* Check real exit time. */
     if (exitcode != STILL_ACTIVE) get_process_exit_time(service->process_handle, &service->exit_time);
     CloseHandle(service->process_handle);
+  }
+  if (service->process_thread) {
+    CloseHandle(service->process_thread);
+	service->process_thread = 0;
   }
 
   service->process_handle = 0;
