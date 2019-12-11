@@ -1783,13 +1783,22 @@ void CALLBACK end_service(void *arg, unsigned char why) {
     /* Check real exit time. */
     if (exitcode != STILL_ACTIVE) get_process_exit_time(service->process_handle, &service->exit_time);
     CloseHandle(service->process_handle);
+	service->process_handle = 0;
   }
   if (service->process_thread) {
     CloseHandle(service->process_thread);
 	service->process_thread = 0;
   }
-
-  service->process_handle = 0;
+  if (service->stdout_thread)
+  {
+	  CloseHandle(service->stdout_thread);
+	  service->stdout_thread = 0;
+  }
+  if (service->stderr_thread)
+  {
+	  CloseHandle(service->stderr_thread);
+	  service->stderr_thread = 0;
+  }
 
   /*
     Log that the service ended BEFORE logging about killing the process
